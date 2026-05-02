@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Folder, FileCode, Play, StickyNote, Gamepad2, MessageSquare } from 'lucide-react';
+import { Folder, FileCode, Play, StickyNote, Gamepad2, MessageSquare, Settings } from 'lucide-react';
 import { AppId } from '../types/os';
 import { cn } from '@/src/lib/utils';
 
@@ -15,6 +15,7 @@ const desktopIcons: { id: AppId; icon: any; label: string; color: string }[] = [
   { id: 'services', icon: MessageSquare, label: 'Hire Me', color: '#EC4899' },
   { id: 'youtube', icon: Play, label: 'Music', color: '#FF0000' },
   { id: 'notes', icon: StickyNote, label: 'Journal', color: '#EAB308' },
+  { id: 'settings', icon: Settings, label: 'Settings', color: '#64748B' },
 ];
 
 export default function Desktop({ onIconClick }: DesktopProps) {

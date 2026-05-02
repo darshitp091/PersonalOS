@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Terminal, Folder, FileCode, Calendar, Wallet, Play, StickyNote, Trash2, History, Gamepad2, MessageSquare } from 'lucide-react';
+import { Terminal, Folder, FileCode, Calendar, Wallet, Play, StickyNote, Trash2, History, Gamepad2, MessageSquare, Settings } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { AppId, WindowState } from '../types/os';
 
@@ -19,6 +19,7 @@ const apps: { id: AppId; icon: any; color: string; label: string }[] = [
   { id: 'youtube', icon: Play, color: '#FF0000', label: 'Music' },
   { id: 'calendar', icon: Calendar, color: '#F87171', label: 'Events' },
   { id: 'wallet', icon: Wallet, color: '#FBBF24', label: 'Payments' },
+  { id: 'settings', icon: Settings, color: '#64748B', label: 'Settings' },
 ];
 
 export default function Taskbar({ windows, activeApp, onAppClick }: TaskbarProps) {

@@ -1,20 +1,78 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Darshit OS v2.0
 
-# Run and deploy your AI Studio app
+Patel Darshit's Personal OS - A high-performance, web-based operating system simulation designed for Full-stack Developers, AI Specialists, and SaaS Architects.
 
-This contains everything you need to run your app locally.
+![Darshit OS Preview](https://images.unsplash.com/photo-1614332287711-b883075199ac?q=80&w=2670&auto=format&fit=crop)
 
-View your app in AI Studio: https://ai.studio/apps/155ce100-cbdd-4466-92a2-099ea156e1de
+## 🚀 Features
 
-## Run Locally
+Darshit OS v2.0 is more than just a portfolio; it's a fully functional containerized ecosystem of applications.
 
-**Prerequisites:**  Node.js
+### 📁 Core Applications
+- **Notes.app**: A professional journaling and note-taking app with "Read" and "Write" views, full markdown support, and Local Storage persistence.
+- **Finder.app**: Navigate through projects, resumes, and system files with a polished glassmorphic interface.
+- **Terminal.app**: A functional command-line interface for power users.
+- **YouTube Music**: A custom-built music player integrating the YouTube API for seamless background audio.
+- **Calendar**: Stay organized with built-in Calendly integration for professional scheduling.
+- **Wallet**: Integrated Stripe checkout for professional service payments and SaaS Tier subscriptions.
 
+### 🎮 Gaming Hub
+- **Flappy Bird (FlappyOS)**: A polished retro-clone featuring smooth linear interpolation for rotations, screen-shake effects, and a particle system for jumps and impacts.
+- **Snake.js**: A classic snake game optimized for the OS environment with high-score tracking and responsive controls.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 🛠 Tech Stack
+- **Frontend**: React 19, Vite, Tailwind CSS 4.0
+- **Animations**: Motion (framer-motion) for fluid OS transitions and physics-based interactions.
+- **Backend**: Node.js & Express (Full-stack architecture)
+- **APIs**:
+    - **Google APIs**: YouTube Data API, Google Auth
+    - **Stripe**: Professional payment processing
+    - **Calendly**: Meeting scheduling
+- **Icons**: Lucide React
+- **Dev Tools**: TypeScript, tsx, ESLint
+
+## 🛠 Installation & Local Development
+
+### Prerequisites
+- Node.js (v18 or higher)
+- npm or yarn
+
+### Setup Instructions
+
+1. **Clone the repository**:
+   ```bash
+   git clone <your-repo-url>
+   cd darshit-os-v2
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Configure Environment Variables**:
+   Create a `.env` file in the root directory and add your keys (refer to `.env.example`):
+   ```env
+   STRIPE_SECRET_KEY=your_stripe_key
+   VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+   GOOGLE_CLIENT_ID=your_id
+   GOOGLE_CLIENT_SECRET=your_secret
+   ```
+
+4. **Run the development server**:
+   ```bash
+   npm run dev
+   ```
+   The app will be available at `http://localhost:3000`.
+
+## 📂 Project Structure
+
+- `src/components/apps/`: Contains the individual OS applications.
+- `src/components/OS/`: Core OS components (Taskbar, Desktop, Window Manager).
+- `server.ts`: Express backend handling API proxies and integrations.
+- `metadata.json`: Application configuration and permissions.
+
+---
+
+**Developed with ❤️ by Darshit Patel**
+*Building the future of human-computer interaction.*

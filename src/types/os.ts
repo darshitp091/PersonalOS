@@ -9,7 +9,8 @@ export type AppId =
   | 'services' 
   | 'notes' 
   | 'recycle-bin' 
-  | 'history';
+  | 'history'
+  | 'settings';
 
 export interface WindowState {
   id: AppId;

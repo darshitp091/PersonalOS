@@ -22,8 +22,12 @@ import NotesApp from './components/apps/Notes';
 import RecycleBinApp from './components/apps/RecycleBin';
 import GamesApp from './components/apps/Games';
 import ServicesApp from './components/apps/Services';
+import SettingsApp from './components/apps/Settings';
+
+import { useSettings } from './lib/SettingsContext';
 
 export default function App() {
+  const { settings } = useSettings();
   const [isBooted, setIsBooted] = useState(false);
   const [windows, setWindows] = useState<Record<AppId, WindowState>>({
     finder: { id: 'finder', title: 'Finder', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 1 },
@@ -37,6 +41,7 @@ export default function App() {
     notes: { id: 'notes', title: 'Notes', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 1 },
     'recycle-bin': { id: 'recycle-bin', title: 'Recycle Bin', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 1 },
     history: { id: 'history', title: 'History', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 1 },
+    settings: { id: 'settings', title: 'System Settings', isOpen: false, isMinimized: false, isMaximized: false, zIndex: 1 },
   });
   const [activeApp, setActiveApp] = useState<AppId | null>(null);
   const [topZ, setTopZ] = useState(10);
@@ -111,12 +116,24 @@ export default function App() {
     return () => window.removeEventListener('open_app', handleOpenApp);
   }, [windows, toggleWindow]);
 
+  const backgroundStyle = useMemo(() => {
+    if (settings.wallpaper.type === 'color') return { backgroundColor: settings.wallpaper.value };
+    if (settings.wallpaper.type === 'image') return { backgroundImage: `url(${settings.wallpaper.value})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+    return {}; // Gradients handled by classes
+  }, [settings.wallpaper]);
+
   if (!isBooted) {
     return <BootScreen onComplete={() => setIsBooted(true)} />;
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-os-bg flex flex-col relative font-sans text-slate-200">
+    <div 
+      className={cn(
+        "h-screen w-screen overflow-hidden flex flex-col relative font-sans text-slate-800 dark:text-slate-200 transition-all duration-700",
+        settings.wallpaper.type === 'gradient' ? `bg-gradient-to-br ${settings.wallpaper.value}` : "bg-black"
+      )}
+      style={backgroundStyle}
+    >
       <SnakesLaddersBackground />
       
       {/* Mesh Background Blobs (keeping for extra depth) */}
@@ -126,8 +143,8 @@ export default function App() {
       </div>
 
       {/* Menubar */}
-      <nav className="h-8 bg-black/60 backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-4 z-[1000]">
-        <div className="flex items-center gap-6 text-[11px] font-bold uppercase tracking-widest">
+      <nav className="h-8 glass backdrop-blur-xl border-b border-white/5 flex items-center justify-between px-4 z-[1000] rounded-none">
+        <div className="flex items-center gap-6 text-[11px] font-bold uppercase tracking-widest text-inherit">
           <button className="flex items-center gap-2 hover:text-os-accent transition-colors">
             <span className="text-os-accent font-black">Darshit OS v2.0</span>
           </button>
@@ -194,6 +211,7 @@ export default function App() {
                 {win.id === 'games' && <GamesApp />}
                 {win.id === 'services' && <ServicesApp />}
                 {win.id === 'notes' && <NotesApp />}
+                {win.id === 'settings' && <SettingsApp />}
                 {win.id === 'recycle-bin' && (
                   <RecycleBinApp 
                     items={recycleBin} 

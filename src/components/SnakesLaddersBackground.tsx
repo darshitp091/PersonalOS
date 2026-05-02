@@ -11,7 +11,10 @@ const SNAKES_LADDERS: Record<number, number> = {
 
 const DiceIcons = [Dice1, Dice2, Dice3, Dice4, Dice5, Dice6];
 
+import { useSettings } from '../lib/SettingsContext';
+
 export default function SnakesLaddersBackground() {
+  const { settings } = useSettings();
   const [positions, setPositions] = useState<[number, number]>([0, 0]); // Player 1, Player 2
   const [turn, setTurn] = useState(0);
   const [diceValue, setDiceValue] = useState(1);
@@ -80,7 +83,10 @@ export default function SnakesLaddersBackground() {
   const DiceIcon = DiceIcons[diceValue - 1];
 
   return (
-    <div className="absolute inset-0 z-[-1] overflow-hidden bg-os-bg flex items-center justify-center p-20 opacity-30">
+    <div 
+      className="absolute inset-0 z-[-1] overflow-hidden bg-os-bg flex items-center justify-center p-20 transition-opacity duration-1000"
+      style={{ opacity: settings.bgIntensity / 100 }}
+    >
       <div className="relative w-full max-w-[800px] aspect-square flex flex-col gap-8">
         
         {/* Game Stats */}
