@@ -327,6 +327,13 @@ export default function Settings() {
                         </div>
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-white/40">
+                             <Monitor className="w-3.5 h-3.5" />
+                             <span className="text-[10px] font-bold uppercase tracking-widest">Live Deployment</span>
+                          </div>
+                          <p className="text-xs font-bold text-os-accent truncate">personal-os-bice.vercel.app</p>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-white/40">
                              <HardDrive className="w-3.5 h-3.5" />
                              <span className="text-[10px] font-bold uppercase tracking-widest">Storage</span>
                           </div>

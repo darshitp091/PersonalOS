@@ -2,6 +2,8 @@
 
 Patel Darshit's Personal OS - A high-performance, web-based operating system simulation designed for Full-stack Developers, AI Specialists, and SaaS Architects.
 
+**Live Demo:** [https://personal-os-bice.vercel.app/](https://personal-os-bice.vercel.app/)
+
 ![Darshit OS Preview](https://images.unsplash.com/photo-1614332287711-b883075199ac?q=80&w=2670&auto=format&fit=crop)
 
 ## 🚀 Features
