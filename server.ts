@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { google } from "googleapis";
 import Stripe from "stripe";
+import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
@@ -12,15 +13,29 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
+
+// --- Gemini Setup ---
+let aiClient: GoogleGenAI | null = null;
+function getAiClient() {
+  if (!aiClient) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      console.warn("GEMINI_API_KEY is not defined. AI features will be disabled.");
+      return null;
+    }
+    aiClient = new GoogleGenAI({ apiKey: key });
+  }
+  return aiClient;
+}
 
 // --- OAuth Configurations ---
 const googleConfig = {
   clientId: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  redirectUri: `${process.env.APP_URL}/auth/google/callback`,
+  redirectUri: process.env.APP_URL ? `${process.env.APP_URL}/auth/google/callback` : `http://localhost:${PORT}/auth/google/callback`,
 };
 
 // --- Stripe Setup ---
@@ -34,6 +49,40 @@ app.get("/api/health", (req, res) => {
     mode: process.env.NODE_ENV || "development",
     hasFetch: typeof fetch !== "undefined"
   });
+});
+
+// Gemini Chat Route
+app.post("/api/chat", async (req, res) => {
+  const { prompt, history = [] } = req.body;
+  const ai = getAiClient();
+  
+  if (!ai) {
+    return res.status(500).json({ error: "Gemini API key is not configured on the server." });
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: [
+        ...history.map((h: any) => ({
+          role: h.role === 'user' ? 'user' : 'model',
+          parts: [{ text: h.content }]
+        })),
+        { role: 'user', parts: [{ text: prompt }] }
+      ],
+      config: {
+        systemInstruction: `You are Darshit's OS AI Assistant.
+        You represent the user (Darshit) to his visitors.
+        Keep your tone: Technical, sleek, and helpful. Use markdown for better formatting.
+        If asked about skills, work, or personality, answer as an advanced personal OS.`,
+      }
+    });
+
+    res.json({ text: response.text });
+  } catch (error: any) {
+    console.error("Gemini Backend Error:", error);
+    res.status(500).json({ error: error.message || "AI failed to respond" });
+  }
 });
 
 // Google Auth URL
@@ -244,4 +293,9 @@ async function startServer() {
   });
 }
 
-startServer();
+export default app;
+
+// Only start the server if we're not on Vercel (e.g., local dev)
+if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+  startServer();
+}
