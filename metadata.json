@@ -1,0 +1,6 @@
+{
+  "name": "Darshit OS v2.0",
+  "description": "Patel Darshit's Personal OS - Full-stack Developer, AI Specialist, and SaaS Architect. Featuring a high-performance workspace, interactive games, and professional service integrations.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["AI Assistant", "YouTube Music & Open Source Audio", "Professional Service Form", "Retro Gaming Hub"]
+}

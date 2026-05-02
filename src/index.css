@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-os-accent: #00F5FF;
+  --color-os-secondary: #7C3AED;
+  --color-os-bg: #030711;
+  --color-os-glass: rgba(10, 20, 40, 0.4);
+  --color-os-glass-border: rgba(255, 255, 255, 0.1);
+}
+
+@layer base {
+  body {
+    @apply bg-os-bg text-slate-100 selection:bg-os-accent selection:text-black overflow-hidden font-sans;
+  }
+}
+
+@utility glass {
+  @apply bg-os-glass backdrop-blur-3xl border border-white/5 shadow-[0_8px_32px_0_rgba(0,0,0,0.8)];
+}
+
+@utility glass-thin {
+  @apply bg-white/5 backdrop-blur-lg border border-white/10;
+}
+
+@utility glass-dark {
+  @apply bg-black/40 backdrop-blur-3xl border border-white/10;
+}
+
+@utility title-bar {
+  @apply h-9 bg-slate-800/80 backdrop-blur-md rounded-t-xl border-b border-white/5 flex items-center px-3 select-none;
+}
+
+@utility app-window {
+  @apply glass rounded-2xl overflow-hidden shadow-2xl;
+}
+
+@utility scrollbar-hide {
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes gradient-mesh {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  background: linear-gradient(-45deg, #0a0a14, #1a1a2e, #16213e, #0f3460);
+  background-size: 400% 400%;
+  animation: gradient-mesh 15s ease infinite;
+}
