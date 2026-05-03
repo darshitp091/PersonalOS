@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { google } from "googleapis";
 import Stripe from "stripe";
 import { GoogleGenAI } from "@google/genai";
+import Groq from "groq-sdk";
 
 dotenv.config();
 
@@ -17,15 +18,22 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
-// --- Gemini Setup ---
+// --- AI Setup (Groq Preferred) ---
+let groqClient: Groq | null = null;
+function getGroqClient() {
+  if (!groqClient) {
+    const key = process.env.GROQ_API_KEY;
+    if (!key) return null;
+    groqClient = new Groq({ apiKey: key });
+  }
+  return groqClient;
+}
+
 let aiClient: GoogleGenAI | null = null;
 function getAiClient() {
   if (!aiClient) {
     const key = process.env.GEMINI_API_KEY;
-    if (!key) {
-      console.warn("GEMINI_API_KEY is not defined. AI features will be disabled.");
-      return null;
-    }
+    if (!key) return null;
     aiClient = new GoogleGenAI({ apiKey: key });
   }
   return aiClient;
@@ -34,88 +42,146 @@ function getAiClient() {
 const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${PORT}`);
 
 // --- OAuth Configurations ---
-const googleConfig = {
-  clientId: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  redirectUri: `${appUrl}/auth/google/callback`,
+const getGoogleConfig = () => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  
+  if (!clientId || !clientSecret) {
+    return null;
+  }
+
+  return {
+    clientId,
+    clientSecret,
+    redirectUri: `${appUrl}/auth/google/callback`,
+  };
 };
 
 // --- Stripe Setup ---
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+const getStripe = () => {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  return new Stripe(key);
+};
+
+// --- Portfolio Context for AI ---
+const PORTFOLIO_CONTEXT = `
+User Name: Darshit Patel
+Location: Surat, Gujarat, India
+Email: darshitp091@gmail.com
+WhatsApp: +91 92564 51591
+Expertise: Full-stack Developer, AI Specialist, SaaS Architect.
+Projects:
+1. Snippets Factory: AI-Powered Code Management SaaS (Next.js 15, Supabase, AI Search).
+2. FlowCoach: Multi-tenant CRM for coaching with advanced RBAC.
+3. LinkedAI: AI Content Scheduler for LinkedIn.
+4. Defence Engine: High-Performance Security System (Python, Quantum-inspired hashing).
+Availability: Accepting custom SaaS and AI automation projects.
+Goal: Talk about Darshit's works, expertise, and help visitors book a call via Calendly.
+`;
 
 // --- API Routes ---
 
 app.get("/api/health", (req, res) => {
   res.json({ 
     status: "ok", 
-    mode: process.env.NODE_ENV || "development",
-    hasFetch: typeof fetch !== "undefined"
+    googleConfigured: !!getGoogleConfig(),
+    groqConfigured: !!getGroqClient(),
+    geminiConfigured: !!getAiClient(),
+    calendlyConfigured: !!process.env.CALENDLY_API_KEY
   });
 });
 
-// Gemini Chat Route
+// AI Chat Route (Groq with Gemini Fallback)
 app.post("/api/chat", async (req, res) => {
   const { prompt, history = [] } = req.body;
-  const ai = getAiClient();
+  const groq = getGroqClient();
+  const gemini = getAiClient();
   
-  if (!ai) {
-    return res.status(500).json({ error: "Gemini API key is not configured on the server." });
+  if (!groq && !gemini) {
+    return res.status(500).json({ error: "No AI service (Groq or Gemini) is configured on the server. Please check environment variables." });
   }
 
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: [
-        ...history.map((h: any) => ({
-          role: h.role === 'user' ? 'user' : 'model',
-          parts: [{ text: h.content }]
-        })),
-        { role: 'user', parts: [{ text: prompt }] }
-      ],
-      config: {
-        systemInstruction: `You are Darshit's OS AI Assistant.
-        You represent the user (Darshit) to his visitors.
-        Keep your tone: Technical, sleek, and helpful. Use markdown for better formatting.
-        If asked about skills, work, or personality, answer as an advanced personal OS.`,
-      }
-    });
+  const systemInstructions = `
+    You are Darshit's OS Personal Assistant. 
+    Your primary goal is to represent Darshit Patel to his visitors.
+    
+    Context:
+    ${PORTFOLIO_CONTEXT}
+    
+    Instructions:
+    - You are a Portfolio Analyzer. You evaluate if a user's project is a good fit for Darshit.
+    - If a user wants to work with Darshit, check his skills and expertise.
+    - If they want to book a call, direct them to the "Events" (Calendly) section or ask for their preferred time to "hand over" to Darshit.
+    - Keep tone: Professional, technical, sleek, and helpful.
+    - Use Markdown for responses.
+  `;
 
-    res.json({ text: response.text });
+  try {
+    if (groq) {
+      const response = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: systemInstructions },
+          ...history.map((h: any) => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content })),
+          { role: "user", content: prompt }
+        ],
+        model: "llama3-8b-8192",
+      });
+      return res.json({ text: response.choices[0]?.message?.content || "No response" });
+    } else if (gemini) {
+      const response = await gemini.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
+          ...history.map((h: any) => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.content }] })),
+          { role: 'user', parts: [{ text: prompt }] }
+        ],
+        config: {
+          systemInstruction: systemInstructions,
+        }
+      });
+      return res.json({ text: response.text });
+    }
   } catch (error: any) {
-    console.error("Gemini Backend Error:", error);
-    res.status(500).json({ error: error.message || "AI failed to respond" });
+    console.error("AI Backend Error:", error);
+    res.status(500).json({ error: error.message || "AI failed to respond. Check backend logs." });
   }
 });
 
 // Google Auth URL
 app.get("/api/auth/google/url", (req, res) => {
-  const oauth2Client = new google.auth.OAuth2(
-    googleConfig.clientId,
-    googleConfig.clientSecret,
-    googleConfig.redirectUri
-  );
+  const config = getGoogleConfig();
+  if (!config) {
+    return res.status(500).json({ error: "Google OAuth is not configured. Missing Client ID or Secret." });
+  }
 
-  const url = oauth2Client.generateAuthUrl({
-    access_type: "offline",
-    scope: [
-      "https://www.googleapis.com/auth/calendar.readonly",
-      "https://www.googleapis.com/auth/gmail.readonly",
-      "https://www.googleapis.com/auth/userinfo.profile",
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/youtube.readonly",
-    ],
-    prompt: "consent",
-  });
+  try {
+    const oauth2Client = new google.auth.OAuth2(
+      config.clientId,
+      config.clientSecret,
+      config.redirectUri
+    );
 
-  res.json({ url });
+    const url = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: [
+        "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/youtube.readonly",
+      ],
+      prompt: "consent",
+    });
+
+    res.json({ url });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to generate Google Auth URL" });
+  }
 });
 
 // Callback Handlers (Templates)
 app.get(["/auth/google/callback", "/auth/google/callback/"], async (req, res) => {
   const { code } = req.query;
-  
-  // In a real app, you'd exchange code for tokens here
-  // For this OS preview, we pass the code back to the client to handle the fetch
   res.send(`
     <html>
       <body>
@@ -133,53 +199,41 @@ app.get(["/auth/google/callback", "/auth/google/callback/"], async (req, res) =>
   `);
 });
 
-// Proxy route to fetch YouTube Music (Videos from Music Category)
+// Proxy route to fetch YouTube Music
 app.get("/api/youtube/library", async (req, res) => {
+  const config = getGoogleConfig();
+  if (!config) return res.status(500).json({ error: "Google OAuth not configured" });
+
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "No token" });
 
   try {
-    const oauth2Client = new google.auth.OAuth2(
-      googleConfig.clientId,
-      googleConfig.clientSecret,
-      googleConfig.redirectUri
-    );
+    const oauth2Client = new google.auth.OAuth2(config.clientId, config.clientSecret, config.redirectUri);
     oauth2Client.setCredentials({ access_token: token });
 
     const youtube = google.youtube({ version: "v3", auth: oauth2Client });
-    
-    // Fetching "Most Popular" music videos as a library proxy
     const response = await youtube.videos.list({
       part: ["snippet", "contentDetails"],
       chart: "mostPopular",
-      videoCategoryId: "10", // Music category
+      videoCategoryId: "10",
       maxResults: 10
     });
 
     res.json(response.data.items || []);
   } catch (error: any) {
     console.error("YouTube API Error:", error);
-    const statusCode = (typeof error.code === 'number') ? error.code : 500;
-    const message = error.errors?.[0]?.message || error.message || "Unknown YouTube API error";
-    const reason = error.errors?.[0]?.reason || "unknown";
-    
-    res.status(statusCode).json({ 
-      error: message,
-      reason: reason,
-      code: statusCode
-    });
+    res.status(error.code || 500).json({ error: error.message || "YouTube API error" });
   }
 });
 
 // Route to exchange code for token
 app.post("/api/auth/google/token", async (req, res) => {
+  const config = getGoogleConfig();
+  if (!config) return res.status(500).json({ error: "Google OAuth not configured" });
+
   const { code } = req.body;
   try {
-    const oauth2Client = new google.auth.OAuth2(
-      googleConfig.clientId,
-      googleConfig.clientSecret,
-      googleConfig.redirectUri
-    );
+    const oauth2Client = new google.auth.OAuth2(config.clientId, config.clientSecret, config.redirectUri);
     const { tokens } = await oauth2Client.getToken(code as string);
     res.json(tokens);
   } catch (error: any) {
@@ -187,40 +241,23 @@ app.post("/api/auth/google/token", async (req, res) => {
   }
 });
 
-app.get(["/auth/spotify/callback", "/auth/spotify/callback/"], (req, res) => {
-  res.send(`
-    <html>
-      <body>
-        <script>
-          if (window.opener) {
-            window.opener.postMessage({ type: 'SPOTIFY_AUTH_SUCCESS', code: '${req.query.code}' }, '*');
-            window.close();
-          } else {
-            window.location.href = '/';
-          }
-        </script>
-        <p>Authentication successful. Closing window...</p>
-      </body>
-    </html>
-  `);
-});
-
 // Stripe Checkout Session
 app.post("/api/create-checkout-session", async (req, res) => {
+  const s = getStripe();
+  if (!s) return res.status(500).json({ error: "Stripe not configured" });
+
   const { amount, productName } = req.body;
   try {
-    const session = await stripe.checkout.sessions.create({
+    const session = await s.checkout.sessions.create({
       payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: { name: productName },
-            unit_amount: amount,
-          },
-          quantity: 1,
+      line_items: [{
+        price_data: {
+          currency: "usd",
+          product_data: { name: productName },
+          unit_amount: amount,
         },
-      ],
+        quantity: 1,
+      }],
       mode: "payment",
       success_url: `${appUrl}?payment=success`,
       cancel_url: `${appUrl}?payment=cancel`,
@@ -237,40 +274,29 @@ const CALENDLY_API_URL = "https://api.calendly.com";
 app.get("/api/calendly/events", async (req, res) => {
   const apiKey = process.env.CALENDLY_API_KEY;
   if (!apiKey) {
-    // Return empty but clearly marked as needing config
-    return res.status(200).json({ error: "CALENDLY_API_KEY not configured", needsConfig: true });
+    return res.status(200).json({ collection: [], error: "Calendly API Key missing", needsConfig: true });
   }
 
   try {
-    // 1. Get current user
     const userRes = await fetch(`${CALENDLY_API_URL}/users/me`, {
       headers: { 'Authorization': `Bearer ${apiKey}` }
     });
     
     if (!userRes.ok) {
-      const errorText = await userRes.text();
-      return res.status(userRes.status).json({ 
-        error: `Calendly Authentication failed.`,
-        details: errorText
-      });
+      return res.status(userRes.status).json({ error: "Calendly key is invalid or expired." });
     }
     
     const { resource: user } = await userRes.json();
-
-    // 2. Get scheduled events
     const eventsRes = await fetch(`${CALENDLY_API_URL}/scheduled_events?user=${user.uri}&status=active`, {
       headers: { 'Authorization': `Bearer ${apiKey}` }
     });
     
-    if (!eventsRes.ok) {
-      const errorText = await eventsRes.text();
-      return res.status(eventsRes.status).json({ error: `Calendly Events API fetch failed.` });
-    }
+    if (!eventsRes.ok) return res.status(eventsRes.status).json({ error: "Failed to fetch Calendly events." });
     
     const eventsData = await eventsRes.json();
     res.json(eventsData.collection || []);
   } catch (error: any) {
-    res.status(500).json({ error: "Failed to connect to Calendly" });
+    res.status(500).json({ error: "Failed to connect to Calendly", details: error.message });
   }
 });
 
@@ -295,7 +321,6 @@ async function startServer() {
   });
 }
 
-// Only start the server if we're not on Vercel
 if (process.env.NODE_ENV !== "production" || (!process.env.VERCEL && !process.env.NOW_REGION)) {
   startServer();
 }

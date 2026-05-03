@@ -1,4 +1,4 @@
-export async function askGemini(prompt: string, history: any[] = []) {
+export async function askAssistant(prompt: string, history: any[] = []) {
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',

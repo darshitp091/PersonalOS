@@ -26,10 +26,27 @@ export default function YouTubeMusic() {
   const currentTrack = tracks[currentIndex];
 
   const handleAuth = async () => {
-    setApiError(null);
-    const res = await fetch('/api/auth/google/url');
-    const { url } = await res.json();
-    window.open(url, 'google_auth', 'width=500,height=600');
+    try {
+      setApiError(null);
+      const res = await fetch('/api/auth/google/url');
+      
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const err = await res.json();
+          throw new Error(err.error || `Server responded with ${res.status}`);
+        } else {
+          const text = await res.text();
+          throw new Error(`Auth service error (${res.status}): ${text.substring(0, 50)}`);
+        }
+      }
+
+      const { url } = await res.json();
+      window.open(url, 'google_auth', 'width=500,height=600');
+    } catch (err: any) {
+      console.error("Auth URL fetch failed:", err);
+      setApiError(err.message || "Failed to connect to Google Auth service.");
+    }
   };
 
   const exchangeToken = async (code: string) => {

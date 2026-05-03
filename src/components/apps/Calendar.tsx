@@ -106,9 +106,20 @@ export default function Calendar() {
   const handleAuth = async () => {
     try {
       const res = await fetch('/api/auth/google/url');
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const err = await res.json();
+          throw new Error(err.error || `Error ${res.status}`);
+        } else {
+          const text = await res.text();
+          throw new Error(`Server Error: ${text.substring(0, 50)}`);
+        }
+      }
       const { url } = await res.json();
       window.open(url, 'google_auth', 'width=500,height=600');
-    } catch(e) {
+    } catch(e: any) {
+      console.error('Google Auth link failed:', e);
       // Fallback/Demo mode
       setIsAuthenticated(true);
     }

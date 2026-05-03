@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Trash2, ShieldAlert } from 'lucide-react';
 import { motion } from 'motion/react';
-import { askGemini } from '@/src/lib/gemini';
+import { askAssistant } from '@/src/lib/ai';
 import { ChatMessage } from '@/src/types/os';
 import { cn } from '@/src/lib/utils';
 
@@ -43,7 +43,7 @@ export default function Terminal({ history, setHistory, onDeleteChat }: Terminal
       return;
     }
 
-    const aiResponse = await askGemini(input, history);
+    const aiResponse = await askAssistant(input, history);
     
     const botMsg: ChatMessage = {
       id: Math.random().toString(36).substr(2, 9),
