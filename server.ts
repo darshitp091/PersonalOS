@@ -5,48 +5,35 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import { google } from "googleapis";
 import Stripe from "stripe";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
-// --- AI Setup (Groq Preferred) ---
+// --- AI Setup ---
 let groqClient: Groq | null = null;
 function getGroqClient() {
-  try {
-    if (!groqClient) {
-      const key = process.env.GROQ_API_KEY;
-      if (!key) return null;
-      groqClient = new Groq({ apiKey: key });
-    }
-    return groqClient;
-  } catch (err) {
-    console.error("Groq Init Error:", err);
-    return null;
+  const key = process.env.GROQ_API_KEY;
+  if (!key) return null;
+  if (!groqClient) {
+    groqClient = new Groq({ apiKey: key });
   }
+  return groqClient;
 }
 
-let aiClient: GoogleGenAI | null = null;
-function getAiClient() {
-  try {
-    if (!aiClient) {
-      const key = process.env.GEMINI_API_KEY;
-      if (!key) return null;
-      aiClient = new GoogleGenAI({ apiKey: key });
-    }
-    return aiClient;
-  } catch (err) {
-    console.error("Gemini Init Error:", err);
-    return null;
+let geminiClient: GoogleGenerativeAI | null = null;
+function getGeminiClient() {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+  if (!geminiClient) {
+    geminiClient = new GoogleGenerativeAI(key);
   }
+  return geminiClient;
 }
 
 const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${PORT}`);
@@ -76,62 +63,63 @@ const getStripe = () => {
 
 // --- Portfolio Context for AI ---
 const PORTFOLIO_CONTEXT = `
-User Name: Darshit Patel
-Location: Surat, Gujarat, India
-Email: darshitp091@gmail.com
-WhatsApp: +91 92564 51591
-Expertise: Full-stack Developer, AI Specialist, SaaS Architect.
+User: Darshit Patel
+Role: Full-stack Developer & AI SaaS Architect
+Location: Surat, India
+Contact: darshitp091@gmail.com | +91 92564 51591 (WhatsApp)
+
+Expertise:
+- Next.js 15, React, TypeScript
+- AI Automation (Groq, Gemini, OpenAI)
+- SaaS Architecture, Cloud Infrastructure
+- Backend: Supabase, PostgreSQL, Express
+
 Projects:
-1. Snippets Factory: AI-Powered Code Management SaaS (Next.js 15, Supabase, AI Search).
-2. FlowCoach: Multi-tenant CRM for coaching with advanced RBAC.
-3. LinkedAI: AI Content Scheduler for LinkedIn.
-4. Defence Engine: High-Performance Security System (Python, Quantum-inspired hashing).
-Availability: Accepting custom SaaS and AI automation projects.
-Goal: Talk about Darshit's works, expertise, and help visitors book a call via Calendly.
+1. Snippets Factory: AI-Powered Code Management SaaS.
+2. FlowCoach: CRM for Coaching with enterprise-grade RBAC.
+3. LinkedAI: Intelligent LinkedIn automation and scheduling.
+4. Defence Engine: High-performance security hashing system.
+
+Availability: Open for high-impact SaaS development and AI integration projects.
+Call Booking: Users can book a call via the 'Events' app (Calendly) in this OS.
+`;
+
+const systemInstructions = `
+You are Darshit's Personal Portfolio Assistant. 
+Your goal is to inform visitors about Darshit Patel's work and guide them to hire him or book a call.
+
+Rules:
+1. You identify as Darshit's Personal assistant.
+2. Always highlight his expertise in SaaS and AI if relevant.
+3. If a visitor asks about booking, hiring, or scheduling, point them to the "Events" app or provide his WhatsApp.
+4. Keep the tone technical, sleek, and high-end.
+5. Use markdown for better presentation.
+6. Context: ${PORTFOLIO_CONTEXT}
 `;
 
 // --- API Routes ---
 
 app.get("/api/health", (req, res) => {
-  console.log("Health check requested");
   res.json({ 
     status: "ok", 
-    googleConfigured: !!process.env.GOOGLE_CLIENT_ID,
-    groqConfigured: !!process.env.GROQ_API_KEY,
-    geminiConfigured: !!process.env.GEMINI_API_KEY,
-    calendlyConfigured: !!process.env.CALENDLY_API_KEY,
-    env: process.env.NODE_ENV
+    groq: !!process.env.GROQ_API_KEY,
+    gemini: !!process.env.GEMINI_API_KEY,
+    google: !!process.env.GOOGLE_CLIENT_ID,
+    calendly: !!process.env.CALENDLY_API_KEY,
+    stripe: !!process.env.STRIPE_SECRET_KEY,
+    env: process.env.NODE_ENV,
+    url: appUrl
   });
 });
 
-// AI Chat Route (Groq with Gemini Fallback)
+// AI Chat Route
 app.post("/api/chat", async (req, res) => {
   const { prompt, history = [] } = req.body;
-  const groq = getGroqClient();
-  const gemini = getAiClient();
   
-  if (!groq && !gemini) {
-    return res.status(500).json({ error: "No AI service (Groq or Gemini) is configured on the server. Please check environment variables." });
-  }
-
-  const systemInstructions = `
-    You are Darshit's OS Personal Assistant. 
-    Your primary goal is to represent Darshit Patel to his visitors.
-    
-    Context:
-    ${PORTFOLIO_CONTEXT}
-    
-    Instructions:
-    - You are a Portfolio Analyzer. You evaluate if a user's project is a good fit for Darshit.
-    - If a user wants to work with Darshit, check his skills and expertise.
-    - If they want to book a call, direct them to the "Events" (Calendly) section or ask for their preferred time to "hand over" to Darshit.
-    - Keep tone: Professional, technical, sleek, and helpful.
-    - Use Markdown for responses.
-  `;
-
   try {
+    const groq = getGroqClient();
     if (groq) {
-      const response = await groq.chat.completions.create({
+      const completion = await groq.chat.completions.create({
         messages: [
           { role: "system", content: systemInstructions },
           ...history.map((h: any) => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.content })),
@@ -139,23 +127,26 @@ app.post("/api/chat", async (req, res) => {
         ],
         model: "llama3-8b-8192",
       });
-      return res.json({ text: response.choices[0]?.message?.content || "No response" });
-    } else if (gemini) {
-      const response = await gemini.models.generateContent({
-        model: "gemini-3-flash-preview",
+      return res.json({ text: completion.choices[0]?.message?.content || "I'm sorry, I couldn't process that." });
+    }
+
+    const gemini = getGeminiClient();
+    if (gemini) {
+      const model = gemini.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent({
         contents: [
+          { role: "user", parts: [{ text: systemInstructions }] }, // Injecting system instructions as first turn
           ...history.map((h: any) => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.content }] })),
           { role: 'user', parts: [{ text: prompt }] }
-        ],
-        config: {
-          systemInstruction: systemInstructions,
-        }
+        ]
       });
-      return res.json({ text: response.text });
+      return res.json({ text: result.response.text() });
     }
+
+    res.status(503).json({ error: "AI services are currently unavailable. Please check server logs." });
   } catch (error: any) {
-    console.error("AI Backend Error:", error);
-    res.status(500).json({ error: error.message || "AI failed to respond. Check backend logs." });
+    console.error("AI Assistant Error:", error);
+    res.status(500).json({ error: error.message || "Something went wrong in the neural link." });
   }
 });
 
@@ -315,11 +306,18 @@ app.get("/api/calendly/events", async (req, res) => {
 // Vite Middleware for Development
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
@@ -327,26 +325,20 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
 }
 
 // Global Error Handler for Vercel
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("Vercel Function Error:", err);
+  console.error("Critical Server Error:", err);
   res.status(500).json({ 
     error: "A server error has occurred", 
     message: err.message,
-    stack: process.env.NODE_ENV === 'production' ? '🥞' : err.stack 
+    details: process.env.NODE_ENV === 'production' ? null : err.stack 
   });
 });
 
 if (process.env.NODE_ENV !== "production" || (!process.env.VERCEL && !process.env.NOW_REGION)) {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  startServer();
 }
 
 export default app;
