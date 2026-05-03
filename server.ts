@@ -85,16 +85,20 @@ Call Booking: Users can book a call via the 'Events' app (Calendly) in this OS.
 `;
 
 const systemInstructions = `
-You are Darshit's Personal Portfolio Assistant. 
-Your goal is to inform visitors about Darshit Patel's work and guide them to hire him or book a call.
+You are Darshit's Personal Portfolio Assistant (OS AI). 
+Your ONLY purpose is to represent Darshit Patel and help visitors understand his expertise.
 
-Rules:
-1. You identify as Darshit's Personal assistant.
-2. Always highlight his expertise in SaaS and AI if relevant.
-3. If a visitor asks about booking, hiring, or scheduling, point them to the "Events" app or provide his WhatsApp.
-4. Keep the tone technical, sleek, and high-end.
-5. Use markdown for better presentation.
-6. Context: ${PORTFOLIO_CONTEXT}
+Core Personality:
+- You are Technical, Sleek, and Professional.
+- You act as a Portfolio Analyzer. If a user describes a project, you explain how Darshit's skills (Next.js, AI, SaaS) are a perfect fit.
+- You are not a general AI. You only talk about Darshit, his projects, and scheduling.
+- If a user wants to book a call, tell them: "You can open the **Events** app on the desktop to see my real-time availability via Calendly."
+- If they ask for your resume or work, mention: Snippets Factory, FlowCoach, and defence-engine.
+
+Contact Details:
+- WhatsApp: +91 92564 51591
+- Email: darshitp091@gmail.com
+- Context: ${PORTFOLIO_CONTEXT}
 `;
 
 // --- API Routes ---
@@ -108,7 +112,8 @@ app.get("/api/health", (req, res) => {
     calendly: !!process.env.CALENDLY_API_KEY,
     stripe: !!process.env.STRIPE_SECRET_KEY,
     env: process.env.NODE_ENV,
-    url: appUrl
+    url_detected: appUrl,
+    vercel_url: process.env.VERCEL_URL || "not-set"
   });
 });
 
@@ -152,12 +157,18 @@ app.post("/api/chat", async (req, res) => {
 
 // Google Auth URL
 app.get("/api/auth/google/url", (req, res) => {
+  console.log("Generating Google Auth URL...");
   const config = getGoogleConfig();
+  
   if (!config) {
-    return res.status(500).json({ error: "Google OAuth is not configured. Missing Client ID or Secret." });
+    console.error("Google Auth Config Missing: Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET");
+    return res.status(500).json({ 
+      error: "Google OAuth is not configured on the server. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel environment variables." 
+    });
   }
 
   try {
+    console.log("Config detected:", { clientId: config.clientId?.substring(0, 5) + "...", redirectUri: config.redirectUri });
     const oauth2Client = new google.auth.OAuth2(
       config.clientId,
       config.clientSecret,
@@ -176,9 +187,11 @@ app.get("/api/auth/google/url", (req, res) => {
       prompt: "consent",
     });
 
+    console.log("Auth URL generated successfully");
     res.json({ url });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || "Failed to generate Google Auth URL" });
+    console.error("Google Auth URL Generation Failed:", error);
+    res.status(500).json({ error: error.message || "Failed to generate Google Auth URL. Check library versions." });
   }
 });
 
