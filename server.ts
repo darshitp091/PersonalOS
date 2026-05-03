@@ -21,22 +21,32 @@ app.use(express.json());
 // --- AI Setup (Groq Preferred) ---
 let groqClient: Groq | null = null;
 function getGroqClient() {
-  if (!groqClient) {
-    const key = process.env.GROQ_API_KEY;
-    if (!key) return null;
-    groqClient = new Groq({ apiKey: key });
+  try {
+    if (!groqClient) {
+      const key = process.env.GROQ_API_KEY;
+      if (!key) return null;
+      groqClient = new Groq({ apiKey: key });
+    }
+    return groqClient;
+  } catch (err) {
+    console.error("Groq Init Error:", err);
+    return null;
   }
-  return groqClient;
 }
 
 let aiClient: GoogleGenAI | null = null;
 function getAiClient() {
-  if (!aiClient) {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) return null;
-    aiClient = new GoogleGenAI({ apiKey: key });
+  try {
+    if (!aiClient) {
+      const key = process.env.GEMINI_API_KEY;
+      if (!key) return null;
+      aiClient = new GoogleGenAI({ apiKey: key });
+    }
+    return aiClient;
+  } catch (err) {
+    console.error("Gemini Init Error:", err);
+    return null;
   }
-  return aiClient;
 }
 
 const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${PORT}`);
@@ -83,12 +93,14 @@ Goal: Talk about Darshit's works, expertise, and help visitors book a call via C
 // --- API Routes ---
 
 app.get("/api/health", (req, res) => {
+  console.log("Health check requested");
   res.json({ 
     status: "ok", 
-    googleConfigured: !!getGoogleConfig(),
-    groqConfigured: !!getGroqClient(),
-    geminiConfigured: !!getAiClient(),
-    calendlyConfigured: !!process.env.CALENDLY_API_KEY
+    googleConfigured: !!process.env.GOOGLE_CLIENT_ID,
+    groqConfigured: !!process.env.GROQ_API_KEY,
+    geminiConfigured: !!process.env.GEMINI_API_KEY,
+    calendlyConfigured: !!process.env.CALENDLY_API_KEY,
+    env: process.env.NODE_ENV
   });
 });
 
@@ -321,8 +333,20 @@ async function startServer() {
   });
 }
 
+// Global Error Handler for Vercel
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Vercel Function Error:", err);
+  res.status(500).json({ 
+    error: "A server error has occurred", 
+    message: err.message,
+    stack: process.env.NODE_ENV === 'production' ? '🥞' : err.stack 
+  });
+});
+
 if (process.env.NODE_ENV !== "production" || (!process.env.VERCEL && !process.env.NOW_REGION)) {
-  startServer();
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
 }
 
 export default app;
