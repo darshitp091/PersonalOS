@@ -31,11 +31,13 @@ function getAiClient() {
   return aiClient;
 }
 
+const appUrl = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${PORT}`);
+
 // --- OAuth Configurations ---
 const googleConfig = {
   clientId: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  redirectUri: process.env.APP_URL ? `${process.env.APP_URL}/auth/google/callback` : `http://localhost:${PORT}/auth/google/callback`,
+  redirectUri: `${appUrl}/auth/google/callback`,
 };
 
 // --- Stripe Setup ---
@@ -220,8 +222,8 @@ app.post("/api/create-checkout-session", async (req, res) => {
         },
       ],
       mode: "payment",
-      success_url: `${process.env.APP_URL}?payment=success`,
-      cancel_url: `${process.env.APP_URL}?payment=cancel`,
+      success_url: `${appUrl}?payment=success`,
+      cancel_url: `${appUrl}?payment=cancel`,
     });
     res.json({ id: session.id });
   } catch (error: any) {
@@ -293,9 +295,9 @@ async function startServer() {
   });
 }
 
-export default app;
-
-// Only start the server if we're not on Vercel (e.g., local dev)
-if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+// Only start the server if we're not on Vercel
+if (process.env.NODE_ENV !== "production" || (!process.env.VERCEL && !process.env.NOW_REGION)) {
   startServer();
 }
+
+export default app;
